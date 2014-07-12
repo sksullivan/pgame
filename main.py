@@ -17,9 +17,10 @@ class Game(object):
 		glfw.WindowHint(glfw.OPENGL_FORWARD_COMPAT, GL_TRUE) #tell OSX we don't give a shit about compatibility and want the newer GLSL versions
 		glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
 		
-		self.width, self.height = 640, 480
+		self.width, self.height = 1440, 900
 		self.aspect = self.width/float(self.height)
 		self.win = glfw.CreateWindow(self.width, self.height, "test")
+		#self.win = glfw.CreateWindow(self.width, self.height, "test", glfw.GetPrimaryMonitor(), None)
 		self.exitNow = False
 		glfw.MakeContextCurrent(self.win)
 
@@ -32,13 +33,14 @@ class Game(object):
 		#glfw.SetWindowSizeCallback(self.win, self.onSize)
 
 		self.objs = []
-		self.callbacks = {'keyPressed':[],'logic':[]}
+		self.callbacks = {'keyPressed':[],'keyReleased':[],'logic':[]}
 		self.objs.append(Box(0,0))
-		player = Player(0,0)
+		player = Player()
 		self.objs.append(player)
-		self.callbacks['keyPressed'].append(player.getCallbacks(['keyPressed']))
-		self.callbacks['logic'].append(player.getCallbacks(['logic']))
-		self.callbacks['keyReleased'].append(player.getCallbacks(['keyReleased']))
+		self.callbacks['keyPressed'].append(player.getCallback('keyPressed'))
+		self.callbacks['keyReleased'].append(player.getCallback('keyReleased'))
+		self.callbacks['logic'].append(player.getCallback('logic'))
+		#self.callbacks['keyReleased'].append(player.getCallbacks(['keyReleased']))
 		for obj in self.objs:
 			obj.geomArray = numpy.array(obj.geom, numpy.float32)
 			obj.vao = vertex_array_object.glGenVertexArrays(1)
@@ -47,7 +49,7 @@ class Game(object):
 			glBindBuffer(GL_ARRAY_BUFFER, obj.vBuff)
 			glBufferData(GL_ARRAY_BUFFER, 4*len(obj.geom), obj.geomArray, GL_DYNAMIC_DRAW)
 			glEnableVertexAttribArray(0)
-			glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,0,None) #set the size&type of the argument to the shader
+			glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,0,None) #set the size & type of the argument to the shader
 
 			#compile shaders
 			obj.vertShader = shaders.compileShader(obj.vertShaderString,GL_VERTEX_SHADER)
@@ -62,13 +64,17 @@ class Game(object):
 		self.OnInit()
 
 	def keyPressed(self,window,key,scancode,action,mods):
-		if action == KEY_PRESSED: #check these constants
+		if action == glfw.PRESS:
+			if key == glfw.KEY_C:
+				self.colorInc += 1
+			if key == glfw.KEY_R:
+				self.radInc += .001
 			if key == 81:
 				self.exitNow = True
 			print key
 			for callback in self.callbacks['keyPressed']:
 				callback(key)
-		elif action == KEY_RELEASED: #check these constants
+		elif action == glfw.RELEASE:
 			for callback in self.callbacks['keyReleased']:
 				callback(key)
 
@@ -80,31 +86,80 @@ class Game(object):
 
 	def OnInit( self ):
 		#start main loop
+		self.colorInc = 0.000
+		self.radInc = 0.000
 		t = 0
+		radStep = 0
+		colorStep = 0
 		while not glfw.WindowShouldClose(self.win) and not self.exitNow:
 			currT = glfw.GetTime()
 			if currT - t > 1/60.0:
+				colorStep += self.colorInc
+				radStep += self.radInc
 				t = currT
 				self.logic()
-				self.draw()
+				self.draw(colorStep,radStep)
 				glfw.PollEvents()
 
 	def logic(self):
 		for callback in self.callbacks['logic']:
 			callback()
 
-	def draw(self):
+	def draw(self,colorStep,radStep):
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
 		for obj in self.objs:
 			glUseProgram(obj.shader)
 
-			x,y = glfw.GetCursorPos(self.win)
-			x,y = self.setMouseCoords(x,y)
-			mouseLoc = glGetUniformLocation(obj.shader, "mouse");
-			glUniform2f(mouseLoc, x, y);
+			#x,y = glfw.GetCursorPos(self.win)
+			#x,y = self.setMouseCoords(x,y)
+			r,g,b = 0,0,0
+			time = int(colorStep % (255*6))
+			if time < 255:
+				r,g = 255,time
+			elif time < 255*2:
+				r,g = 255-(time-255),255
+			elif time < 255*3:
+				g,b = 255,time-255*2
+			elif time < 255*4:
+				g,b = 255-(time-255*3),255
+			elif time < 255*5:
+				b,r = 255,time-255*4
+			else:
+				b,r = 255-(time-255*5),255
+
+			rgLoc = glGetUniformLocation(obj.shader, "rg");
+			glUniform2f(rgLoc, r/255.0, g/255.0);
+			bLoc = glGetUniformLocation(obj.shader, "b");
+			glUniform2f(bLoc, b/255.0, 0);
+
+			ro,bo,go = 0,0,0
+			time = int((colorStep+150) % (255*6))
+			if time < 255:
+				ro,go = 255,time
+			elif time < 255*2:
+				ro,go = 255-(time-255),255
+			elif time < 255*3:
+				go,bo = 255,time-255*2
+			elif time < 255*4:
+				go,bo = 255-(time-255*3),255
+			elif time < 255*5:
+				bo,ro = 255,time-255*4
+			else:
+				bo,ro = 255-(time-255*5),255
+
+			print(r,g,b)
+			print(ro,go,bo)
+
+			rgLoc = glGetUniformLocation(obj.shader, "rgoff");
+			glUniform2f(rgLoc, ro/255.0, go/255.0);
+			bLoc = glGetUniformLocation(obj.shader, "boff");
+			glUniform2f(bLoc, bo/255.0, 0);
+
 			objLoc = glGetUniformLocation(obj.shader, "self");
 			glUniform2f(objLoc, obj.x, obj.y);
+			timeLoc = glGetUniformLocation(obj.shader, "time");
+			glUniform2f(timeLoc, radStep, 0);
 
 			glBindVertexArray(obj.vao) #bind our VAO
 			glDrawArrays(GL_TRIANGLE_STRIP, 0, len(obj.geom)/3) #draw what's in our VAO
