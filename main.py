@@ -61,6 +61,8 @@ class Game(object):
 
 			glBindVertexArray(0) #unbind our VAO
 
+
+		self.colorOffset = 255*3
 		self.OnInit()
 
 	def keyPressed(self,window,key,scancode,action,mods):
@@ -69,6 +71,8 @@ class Game(object):
 				self.colorInc += 1
 			if key == glfw.KEY_R:
 				self.radInc += .001
+			if key == glfw.KEY_O:
+				self.colorOffset += 100
 			if key == 81:
 				self.exitNow = True
 			print key
@@ -87,7 +91,7 @@ class Game(object):
 	def OnInit( self ):
 		#start main loop
 		self.colorInc = 0.000
-		self.radInc = 0.000
+		self.radInc = 0.0001
 		t = 0
 		radStep = 0
 		colorStep = 0
@@ -134,7 +138,7 @@ class Game(object):
 			glUniform2f(bLoc, b/255.0, 0);
 
 			ro,bo,go = 0,0,0
-			time = int((colorStep+150) % (255*6))
+			time = int((colorStep+self.colorOffset) % (255*6))
 			if time < 255:
 				ro,go = 255,time
 			elif time < 255*2:
